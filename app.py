@@ -23,7 +23,7 @@ st.set_page_config(
 # LOAD CSS
 # --------------------------------------------------
 try:
-    with open("style.css", encoding="utf-8") as css_file:
+    with open("styles.css", encoding="utf-8") as css_file:
         st.markdown(
             f"<style>{css_file.read()}</style>",
             unsafe_allow_html=True,
@@ -429,12 +429,12 @@ elif st.session_state.page == "food":
     )
 
     food_options = [
-        ("🍕 Pizza", "Pizza 🍕"),
+        ("🍕 Chicken Wings", "Chicken Wings 🍗"),
         ("🍣 Sushi", "Sushi 🍣"),
-        ("🍔 Burgers", "Burgers 🍔"),
-        ("🍜 Ramen", "Ramen 🍜"),
         ("🍝 Pasta", "Pasta 🍝"),
-        ("🌮 Tacos", "Tacos 🌮"),
+        ("🍜 Ramen", "Ramen 🍜"),
+        ("🍛 Curry & Naan", "Curry & Naan 🍛"),
+        ("🍰 Coffee & Desserts", "Coffee & Desserts ☕"),
     ]
 
     first_column, second_column = st.columns(
