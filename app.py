@@ -3,6 +3,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import base64
 from pathlib import Path
+import json
 
 # --------------------------------------------------
 # PAGE CONFIGURATION
@@ -57,14 +58,14 @@ def format_time(time_text):
         "%H:%M",
     ).strftime("%I:%M %p")
 
+
 def reset_app():
     st.session_state.page = "home"
     st.session_state.food = None
-    st.session_state.selected_date = (
-        date.today() + timedelta(days=1)
-    )
+    st.session_state.selected_date = date.today() + timedelta(days=1)
     st.session_state.selected_time = "19:00"
     st.rerun()
+
 
 def apply_page_background(image_filename):
     image_path = Path("assets") / image_filename
@@ -72,9 +73,7 @@ def apply_page_background(image_filename):
     if not image_path.exists():
         return
 
-    encoded_image = base64.b64encode(
-        image_path.read_bytes()
-    ).decode()
+    encoded_image = base64.b64encode(image_path.read_bytes()).decode()
 
     st.markdown(
         f"""
@@ -104,6 +103,7 @@ def apply_page_background(image_filename):
         unsafe_allow_html=True,
     )
 
+
 page_backgrounds = {
     "home": "home-background.png",
     "food": "food-background.png",
@@ -111,13 +111,11 @@ page_backgrounds = {
     "confirmed": "confirmed-background.png",
 }
 
-current_background = page_backgrounds.get(
-    st.session_state.page
-)
+current_background = page_backgrounds.get(st.session_state.page)
 
 if current_background:
     apply_page_background(current_background)
-    
+
 # --------------------------------------------------
 # HOME PAGE
 # --------------------------------------------------
@@ -433,14 +431,8 @@ elif st.session_state.page == "food":
         gap="small",
     )
 
-    for index, (button_label, food_value) in enumerate(
-        food_options
-    ):
-        chosen_column = (
-            first_column
-            if index % 2 == 0
-            else second_column
-        )
+    for index, (button_label, food_value) in enumerate(food_options):
+        chosen_column = first_column if index % 2 == 0 else second_column
 
         with chosen_column:
             if st.button(
@@ -535,9 +527,7 @@ elif st.session_state.page == "schedule":
     st.session_state.selected_date = selected_date
     st.session_state.selected_time = selected_time
 
-    formatted_date = selected_date.strftime(
-        "%A, %d %B %Y"
-    )
+    formatted_date = selected_date.strftime("%A, %d %B %Y")
 
     formatted_time = format_time(selected_time)
 
@@ -582,15 +572,9 @@ elif st.session_state.page == "schedule":
 # --------------------------------------------------
 elif st.session_state.page == "confirmed":
 
-    formatted_date = (
-        st.session_state.selected_date.strftime(
-            "%A, %d %B %Y"
-        )
-    )
+    formatted_date = st.session_state.selected_date.strftime("%A, %d %B %Y")
 
-    formatted_time = format_time(
-        st.session_state.selected_time
-    )
+    formatted_time = format_time(st.session_state.selected_time)
 
     selected_food = st.session_state.food
 
@@ -637,6 +621,273 @@ elif st.session_state.page == "confirmed":
         confirmation_html,
         unsafe_allow_html=True,
     )
+
+    # --------------------------------------------------
+    # COPY PLAN AND EMAIL IT
+    # --------------------------------------------------
+    try:
+        web3forms_access_key = st.secrets["WEB3FORMS_ACCESS_KEY"]
+    except KeyError:
+        web3forms_access_key = None
+
+    plan_text = (
+        "It's a date! 💖\n\n"
+        f"🍽️ Food: {selected_food}\n"
+        f"🗓️ Date: {formatted_date}\n"
+        f"⏰ Time: {formatted_time}\n\n"
+        "See you then! ✨"
+    )
+
+    if web3forms_access_key:
+        access_key_json = json.dumps(web3forms_access_key)
+
+        plan_json = json.dumps(plan_text)
+
+        email_button_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html,
+        body {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Arial,
+                sans-serif;
+        }
+
+        .send-area {
+            width: 100%;
+            padding: 5px 0;
+            text-align: center;
+        }
+
+        #send-plan-button {
+            width: 100%;
+            min-height: 60px;
+            padding: 12px 18px;
+
+            border: none;
+            border-radius: 18px;
+
+            background: linear-gradient(
+                135deg,
+                #f05b8a,
+                #ed76a0
+            );
+
+            color: white;
+            font-size: 17px;
+            font-weight: 750;
+
+            box-shadow:
+                0 9px 22px rgba(255, 79, 135, 0.26);
+
+            cursor: pointer;
+            touch-action: manipulation;
+
+            transition:
+                transform 0.15s ease,
+                opacity 0.15s ease;
+        }
+
+        #send-plan-button:hover {
+            transform: translateY(-2px);
+        }
+
+        #send-plan-button:active {
+            transform: scale(0.98);
+        }
+
+        #send-plan-button:disabled {
+            cursor: default;
+            opacity: 0.75;
+            transform: none;
+        }
+
+        #send-result {
+            min-height: 24px;
+            margin: 10px 0 0;
+
+            color: #684d58;
+            font-size: 14px;
+            font-weight: 650;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="send-area">
+        <button id="send-plan-button" type="button">
+            📋 Copy plan & email me 💌
+        </button>
+
+        <p id="send-result"></p>
+    </div>
+
+    <script>
+        const accessKey = __ACCESS_KEY__;
+        const plan = __PLAN__;
+        const button =
+            document.getElementById("send-plan-button");
+
+        const result =
+            document.getElementById("send-result");
+
+
+        async function copyPlan() {
+            try {
+                if (
+                    navigator.clipboard &&
+                    window.isSecureContext
+                ) {
+                    await navigator.clipboard.writeText(plan);
+                    return true;
+                }
+
+                const temporaryTextArea =
+                    document.createElement("textarea");
+
+                temporaryTextArea.value = plan;
+                temporaryTextArea.style.position = "fixed";
+                temporaryTextArea.style.opacity = "0";
+
+                document.body.appendChild(
+                    temporaryTextArea
+                );
+
+                temporaryTextArea.focus();
+                temporaryTextArea.select();
+
+                const copied =
+                    document.execCommand("copy");
+
+                temporaryTextArea.remove();
+
+                return copied;
+            } catch (error) {
+                return false;
+            }
+        }
+
+
+        async function emailPlan() {
+            const response = await fetch(
+                "https://api.web3forms.com/submit",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        access_key: accessKey,
+                        subject:
+                            "💖 A DateQuest plan was confirmed!",
+                        from_name: "DateQuest",
+                        name: "DateQuest guest",
+                        message: plan
+                    })
+                }
+            );
+
+            const responseData = await response.json();
+
+            if (!response.ok || !responseData.success) {
+                throw new Error(
+                    responseData.message ||
+                    "The email could not be sent."
+                );
+            }
+        }
+
+
+        button.addEventListener(
+            "click",
+            async function () {
+                if (button.disabled) {
+                    return;
+                }
+
+                button.disabled = true;
+                button.textContent =
+                    "Sending our plan... 💌";
+
+                result.textContent = "";
+
+                const copied = await copyPlan();
+
+                try {
+                    await emailPlan();
+
+                    button.textContent =
+                        "Plan sent! 💖";
+
+                    if (copied) {
+                        result.textContent =
+                            "Copied and emailed successfully ✨";
+                    } else {
+                        result.textContent =
+                            "Email sent successfully 💌";
+                    }
+                } catch (error) {
+                    button.disabled = false;
+                    button.textContent =
+                        "📋 Copy plan & email me 💌";
+
+                    if (copied) {
+                        result.textContent =
+                            "Plan copied, but the email failed. Please try again.";
+                    } else {
+                        result.textContent =
+                            "Something went wrong. Please try again.";
+                    }
+                }
+            }
+        );
+    </script>
+</body>
+</html>
+"""
+
+        email_button_html = email_button_html.replace(
+            "__ACCESS_KEY__",
+            access_key_json,
+        ).replace(
+            "__PLAN__",
+            plan_json,
+        )
+
+        components.html(
+            email_button_html,
+            height=115,
+            scrolling=False,
+        )
+
+    else:
+        st.warning("The email service has not been configured.")
 
     if st.button(
         "Start again 💕",
