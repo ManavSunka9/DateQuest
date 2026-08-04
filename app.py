@@ -1,9 +1,12 @@
+import base64
+import json
 from datetime import date, datetime, timedelta
+from pathlib import Path
+
 import streamlit as st
 import streamlit.components.v1 as components
-import base64
-from pathlib import Path
-import json
+from streamlit.errors import StreamlitSecretNotFoundError
+
 
 # --------------------------------------------------
 # PAGE CONFIGURATION
@@ -20,7 +23,7 @@ st.set_page_config(
 # LOAD CSS
 # --------------------------------------------------
 try:
-    with open("styles.css", encoding="utf-8") as css_file:
+    with open("style.css", encoding="utf-8") as css_file:
         st.markdown(
             f"<style>{css_file.read()}</style>",
             unsafe_allow_html=True,
@@ -62,7 +65,9 @@ def format_time(time_text):
 def reset_app():
     st.session_state.page = "home"
     st.session_state.food = None
-    st.session_state.selected_date = date.today() + timedelta(days=1)
+    st.session_state.selected_date = (
+        date.today() + timedelta(days=1)
+    )
     st.session_state.selected_time = "19:00"
     st.rerun()
 
@@ -73,7 +78,9 @@ def apply_page_background(image_filename):
     if not image_path.exists():
         return
 
-    encoded_image = base64.b64encode(image_path.read_bytes()).decode()
+    encoded_image = base64.b64encode(
+        image_path.read_bytes()
+    ).decode()
 
     st.markdown(
         f"""
@@ -104,6 +111,9 @@ def apply_page_background(image_filename):
     )
 
 
+# --------------------------------------------------
+# PAGE BACKGROUNDS
+# --------------------------------------------------
 page_backgrounds = {
     "home": "home-background.png",
     "food": "food-background.png",
@@ -111,10 +121,13 @@ page_backgrounds = {
     "confirmed": "confirmed-background.png",
 }
 
-current_background = page_backgrounds.get(st.session_state.page)
+current_background = page_backgrounds.get(
+    st.session_state.page
+)
 
 if current_background:
     apply_page_background(current_background)
+
 
 # --------------------------------------------------
 # HOME PAGE
@@ -132,7 +145,6 @@ if st.session_state.page == "home":
         unsafe_allow_html=True,
     )
 
-    # Reliable native Streamlit Yes button
     if st.button(
         "YES 💗",
         key="yes_button",
@@ -141,7 +153,6 @@ if st.session_state.page == "home":
     ):
         change_page("food")
 
-    # Escaping No button
     components.html(
         """
 <!DOCTYPE html>
@@ -418,12 +429,12 @@ elif st.session_state.page == "food":
     )
 
     food_options = [
-        ("🍕 Chicken Wings", "Chicken Wings 🍗"),
+        ("🍕 Pizza", "Pizza 🍕"),
         ("🍣 Sushi", "Sushi 🍣"),
-        ("🍝 Pasta", "Pasta 🍝"),
+        ("🍔 Burgers", "Burgers 🍔"),
         ("🍜 Ramen", "Ramen 🍜"),
-        ("🍛 Curry & Naan", "Curry & Naan 🍛"),
-        ("🍰 Coffee & Desserts", "Coffee & Desserts ☕"),
+        ("🍝 Pasta", "Pasta 🍝"),
+        ("🌮 Tacos", "Tacos 🌮"),
     ]
 
     first_column, second_column = st.columns(
@@ -431,8 +442,14 @@ elif st.session_state.page == "food":
         gap="small",
     )
 
-    for index, (button_label, food_value) in enumerate(food_options):
-        chosen_column = first_column if index % 2 == 0 else second_column
+    for index, (button_label, food_value) in enumerate(
+        food_options
+    ):
+        chosen_column = (
+            first_column
+            if index % 2 == 0
+            else second_column
+        )
 
         with chosen_column:
             if st.button(
@@ -446,7 +463,6 @@ elif st.session_state.page == "food":
     if st.session_state.food:
         selected_food = st.session_state.food
 
-        # Kept on one line to prevent Markdown code rendering
         food_preview = (
             '<div class="selection-card">'
             "<span>You chose</span>"
@@ -527,12 +543,12 @@ elif st.session_state.page == "schedule":
     st.session_state.selected_date = selected_date
     st.session_state.selected_time = selected_time
 
-    formatted_date = selected_date.strftime("%A, %d %B %Y")
+    formatted_date = selected_date.strftime(
+        "%A, %d %B %Y"
+    )
 
     formatted_time = format_time(selected_time)
 
-    # Constructed as a single string so Streamlit cannot
-    # interpret any part as a Markdown code block.
     preview_html = (
         '<div class="date-preview-card">'
         '<div class="preview-row">'
@@ -572,9 +588,15 @@ elif st.session_state.page == "schedule":
 # --------------------------------------------------
 elif st.session_state.page == "confirmed":
 
-    formatted_date = st.session_state.selected_date.strftime("%A, %d %B %Y")
+    formatted_date = (
+        st.session_state.selected_date.strftime(
+            "%A, %d %B %Y"
+        )
+    )
 
-    formatted_time = format_time(st.session_state.selected_time)
+    formatted_time = format_time(
+        st.session_state.selected_time
+    )
 
     selected_food = st.session_state.food
 
@@ -623,13 +645,8 @@ elif st.session_state.page == "confirmed":
     )
 
     # --------------------------------------------------
-    # COPY PLAN AND EMAIL IT
+    # PREPARE PLAN
     # --------------------------------------------------
-    try:
-        web3forms_access_key = st.secrets["WEB3FORMS_ACCESS_KEY"]
-    except KeyError:
-        web3forms_access_key = None
-
     plan_text = (
         "It's a date! 💖\n\n"
         f"🍽️ Food: {selected_food}\n"
@@ -638,8 +655,23 @@ elif st.session_state.page == "confirmed":
         "See you then! ✨"
     )
 
+    # --------------------------------------------------
+    # GET WEB3FORMS SECRET SAFELY
+    # --------------------------------------------------
+    try:
+        web3forms_access_key = st.secrets[
+            "WEB3FORMS_ACCESS_KEY"
+        ]
+    except (KeyError, StreamlitSecretNotFoundError):
+        web3forms_access_key = None
+
+    # --------------------------------------------------
+    # COPY AND EMAIL BUTTON
+    # --------------------------------------------------
     if web3forms_access_key:
-        access_key_json = json.dumps(web3forms_access_key)
+        access_key_json = json.dumps(
+            web3forms_access_key
+        )
 
         plan_json = json.dumps(plan_text)
 
@@ -748,6 +780,7 @@ elif st.session_state.page == "confirmed":
     <script>
         const accessKey = __ACCESS_KEY__;
         const plan = __PLAN__;
+
         const button =
             document.getElementById("send-plan-button");
 
@@ -785,6 +818,7 @@ elif st.session_state.page == "confirmed":
                 temporaryTextArea.remove();
 
                 return copied;
+
             } catch (error) {
                 return false;
             }
@@ -852,8 +886,10 @@ elif st.session_state.page == "confirmed":
                         result.textContent =
                             "Email sent successfully 💌";
                     }
+
                 } catch (error) {
                     button.disabled = false;
+
                     button.textContent =
                         "📋 Copy plan & email me 💌";
 
@@ -887,7 +923,9 @@ elif st.session_state.page == "confirmed":
         )
 
     else:
-        st.warning("The email service has not been configured.")
+        st.warning(
+            "The email service has not been configured."
+        )
 
     if st.button(
         "Start again 💕",
